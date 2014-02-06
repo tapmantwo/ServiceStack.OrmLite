@@ -23,6 +23,8 @@ using System.Linq.Expressions;
 
 namespace ServiceStack.OrmLite
 {
+    using System.Linq;
+    using System.Reflection;
 
     public abstract class OrmLiteDialectProviderBase<TDialect>
         : IOrmLiteDialectProvider
@@ -930,19 +932,40 @@ namespace ServiceStack.OrmLite
 
                 sbColumns.Append(columnDefinition);
 
-                if (fieldDef.ForeignKey == null) continue;
+                if (fieldDef.PropertyReference != null)
+                {
+                    var propertyReference = fieldDef.PropertyReference;
 
-                var refModelDef = fieldDef.ForeignKey.ReferenceType.GetModelDefinition();
-                sbConstraints.AppendFormat(
-                    ", \n\n  CONSTRAINT {0} FOREIGN KEY ({1}) REFERENCES {2} ({3})",
-                    GetQuotedName(fieldDef.ForeignKey.GetForeignKeyName(modelDef, refModelDef, NamingStrategy, fieldDef)),
-                    GetQuotedColumnName(fieldDef.FieldName),
-                    GetQuotedTableName(refModelDef),
-                    GetQuotedColumnName(refModelDef.PrimaryKey.FieldName));
+                    var refModelDef = propertyReference.ReferenceType.GetModelDefinition();
+                    var referencedProperty =
+                        refModelDef.FieldDefinitions.First(f => f.Name == propertyReference.PropertyName);
 
-                sbConstraints.Append(GetForeignKeyOnDeleteClause(fieldDef.ForeignKey));
-                sbConstraints.Append(GetForeignKeyOnUpdateClause(fieldDef.ForeignKey));
+                    sbConstraints.AppendFormat(
+                        ", \n\n  CONSTRAINT {0} FOREIGN KEY ({1}) REFERENCES {2} ({3})",
+                        GetQuotedName(propertyReference.GetForeignKeyName(modelDef, refModelDef, NamingStrategy, fieldDef)),
+                        GetQuotedColumnName(fieldDef.FieldName),
+                        GetQuotedTableName(refModelDef),
+                        GetQuotedColumnName(referencedProperty.Alias ?? referencedProperty.FieldName));
+                }
+                else
+                {
+                    // Can't have both
+                    if (fieldDef.ForeignKey == null) continue;
+
+                    var refModelDef = fieldDef.ForeignKey.ReferenceType.GetModelDefinition();
+                    sbConstraints.AppendFormat(
+                        ", \n\n  CONSTRAINT {0} FOREIGN KEY ({1}) REFERENCES {2} ({3})",
+                        GetQuotedName(
+                            fieldDef.ForeignKey.GetForeignKeyName(modelDef, refModelDef, NamingStrategy, fieldDef)),
+                        GetQuotedColumnName(fieldDef.FieldName),
+                        GetQuotedTableName(refModelDef),
+                        GetQuotedColumnName(refModelDef.PrimaryKey.FieldName));
+
+                    sbConstraints.Append(GetForeignKeyOnDeleteClause(fieldDef.ForeignKey));
+                    sbConstraints.Append(GetForeignKeyOnUpdateClause(fieldDef.ForeignKey));
+                }
             }
+
             var sql = new StringBuilder(string.Format(
                 "CREATE TABLE {0} \n(\n  {1}{2} \n); \n", GetQuotedTableName(modelDef), sbColumns, sbConstraints));
 

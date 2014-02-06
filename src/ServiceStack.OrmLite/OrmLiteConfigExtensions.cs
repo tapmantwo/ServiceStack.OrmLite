@@ -83,23 +83,23 @@ namespace ServiceStack.OrmLite
             foreach (var propertyInfo in objProperties)
             {
                 var sequenceAttr = propertyInfo.FirstAttribute<SequenceAttribute>();
-                var computeAttr= propertyInfo.FirstAttribute<ComputeAttribute>();
+                var computeAttr = propertyInfo.FirstAttribute<ComputeAttribute>();
                 var decimalAttribute = propertyInfo.FirstAttribute<DecimalLengthAttribute>();
                 var belongToAttribute = propertyInfo.FirstAttribute<BelongToAttribute>();
                 var isFirst = i++ == 0;
 
-                var isPrimaryKey = (!hasPkAttr && (propertyInfo.Name == OrmLiteConfig.IdField || (!hasIdField && isFirst)))
-                    || propertyInfo.HasAttributeNamed(typeof(PrimaryKeyAttribute).Name);
+                var isPrimaryKey = (!hasPkAttr
+                                    && (propertyInfo.Name == OrmLiteConfig.IdField || (!hasIdField && isFirst)))
+                                   || propertyInfo.HasAttributeNamed(typeof(PrimaryKeyAttribute).Name);
 
                 var isNullableType = IsNullableType(propertyInfo.PropertyType);
 
                 var isNullable = (!propertyInfo.PropertyType.IsValueType
-                                   && !propertyInfo.HasAttributeNamed(typeof(RequiredAttribute).Name))
-                                   || isNullableType;
+                                  && !propertyInfo.HasAttributeNamed(typeof(RequiredAttribute).Name)) || isNullableType;
 
                 var propertyType = isNullableType
-                    ? Nullable.GetUnderlyingType(propertyInfo.PropertyType)
-                    : propertyInfo.PropertyType;
+                                       ? Nullable.GetUnderlyingType(propertyInfo.PropertyType)
+                                       : propertyInfo.PropertyType;
 
                 Type treatAsType = null;
                 if (propertyType.IsEnum && propertyType.HasAttribute<FlagsAttribute>())
@@ -123,50 +123,73 @@ namespace ServiceStack.OrmLite
                 var defaultValueAttr = propertyInfo.FirstAttribute<DefaultAttribute>();
 
                 var referencesAttr = propertyInfo.FirstAttribute<ReferencesAttribute>();
-                var referenceAttr  = propertyInfo.FirstAttribute<ReferenceAttribute>();
+                var referenceAttr = propertyInfo.FirstAttribute<ReferenceAttribute>();
                 var foreignKeyAttr = propertyInfo.FirstAttribute<ForeignKeyAttribute>();
+                var propertyReferenceAttr = propertyInfo.FirstAttribute<PropertyReferenceAttribute>();
 
-                var fieldDefinition = new FieldDefinition {
-                    Name = propertyInfo.Name,
-                    Alias = aliasAttr != null ? aliasAttr.Name : null,
-                    FieldType = propertyType,
-                    TreatAsType = treatAsType,
-                    PropertyInfo = propertyInfo,
-                    IsNullable = isNullable,
-                    IsPrimaryKey = isPrimaryKey,
-                    AutoIncrement =
-                        isPrimaryKey &&
-                        propertyInfo.HasAttributeNamed(typeof(AutoIncrementAttribute).Name),
-                    IsIndexed = isIndex,
-                    IsUnique = isUnique,
-                    IsClustered = indexAttr != null && indexAttr.Clustered,
-                    IsNonClustered = indexAttr != null && indexAttr.NonClustered,
-                    FieldLength = stringLengthAttr != null
-                        ? stringLengthAttr.MaximumLength
-                        : (int?)null,
-                    DefaultValue = defaultValueAttr != null ? defaultValueAttr.DefaultValue : null,
-                    ForeignKey = foreignKeyAttr == null
-                        ? referencesAttr != null ? new ForeignKeyConstraint(referencesAttr.Type) : null
-                        : new ForeignKeyConstraint(foreignKeyAttr.Type,
-                                                    foreignKeyAttr.OnDelete,
-                                                    foreignKeyAttr.OnUpdate,
-                                                    foreignKeyAttr.ForeignKeyName),
-                    IsReference = referenceAttr != null && propertyType.IsClass,
-                    GetValueFn = propertyInfo.GetPropertyGetterFn(),
-                    SetValueFn = propertyInfo.GetPropertySetterFn(),
-                    Sequence = sequenceAttr != null ? sequenceAttr.Name : string.Empty,
-                    IsComputed = computeAttr != null,
-                    ComputeExpression = computeAttr != null ? computeAttr.Expression : string.Empty,
-                    Scale = decimalAttribute != null ? decimalAttribute.Scale : (int?)null,
-                    BelongToModelName = belongToAttribute != null ? belongToAttribute.BelongToTableType.GetModelDefinition().ModelName : null, 
-                };
+                var fieldDefinition = new FieldDefinition
+                                          {
+                                              Name = propertyInfo.Name,
+                                              Alias = aliasAttr != null ? aliasAttr.Name : null,
+                                              FieldType = propertyType,
+                                              TreatAsType = treatAsType,
+                                              PropertyInfo = propertyInfo,
+                                              IsNullable = isNullable,
+                                              IsPrimaryKey = isPrimaryKey,
+                                              AutoIncrement =
+                                                  isPrimaryKey
+                                                  && propertyInfo.HasAttributeNamed(
+                                                      typeof(AutoIncrementAttribute).Name),
+                                              IsIndexed = isIndex,
+                                              IsUnique = isUnique,
+                                              IsClustered = indexAttr != null && indexAttr.Clustered,
+                                              IsNonClustered = indexAttr != null && indexAttr.NonClustered,
+                                              FieldLength =
+                                                  stringLengthAttr != null
+                                                      ? stringLengthAttr.MaximumLength
+                                                      : (int?)null,
+                                              DefaultValue =
+                                                  defaultValueAttr != null
+                                                      ? defaultValueAttr.DefaultValue
+                                                      : null,
+                                              ForeignKey =
+                                                  foreignKeyAttr == null
+                                                      ? referencesAttr != null
+                                                            ? new ForeignKeyConstraint(
+                                                                  referencesAttr.Type)
+                                                            : null
+                                                      : new ForeignKeyConstraint(
+                                                            foreignKeyAttr.Type,
+                                                            foreignKeyAttr.OnDelete,
+                                                            foreignKeyAttr.OnUpdate,
+                                                            foreignKeyAttr.ForeignKeyName),
+                                              PropertyReference =
+                                                  PropertyReferenceConstraint.FromAttribute(propertyReferenceAttr),
+                                              IsReference = referenceAttr != null && propertyType.IsClass,
+                                              GetValueFn = propertyInfo.GetPropertyGetterFn(),
+                                              SetValueFn = propertyInfo.GetPropertySetterFn(),
+                                              Sequence =
+                                                  sequenceAttr != null ? sequenceAttr.Name : string.Empty,
+                                              IsComputed = computeAttr != null,
+                                              ComputeExpression =
+                                                  computeAttr != null
+                                                      ? computeAttr.Expression
+                                                      : string.Empty,
+                                              Scale =
+                                                  decimalAttribute != null
+                                                      ? decimalAttribute.Scale
+                                                      : (int?)null,
+                                              BelongToModelName =
+                                                  belongToAttribute != null
+                                                      ? belongToAttribute.BelongToTableType
+                                                            .GetModelDefinition().ModelName
+                                                      : null,
+                                          };
 
                 var isIgnored = propertyInfo.HasAttributeNamed(typeof(IgnoreAttribute).Name)
-                    || fieldDefinition.IsReference;
-                if (isIgnored)
-                  modelDef.IgnoredFieldDefinitions.Add(fieldDefinition);
-                else
-                  modelDef.FieldDefinitions.Add(fieldDefinition);                
+                                || fieldDefinition.IsReference;
+                if (isIgnored) modelDef.IgnoredFieldDefinitions.Add(fieldDefinition);
+                else modelDef.FieldDefinitions.Add(fieldDefinition);
             }
 
             modelDef.SqlSelectAllFromTable = "SELECT {0} FROM {1} "

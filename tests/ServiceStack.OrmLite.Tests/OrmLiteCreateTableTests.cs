@@ -5,6 +5,9 @@ using ServiceStack.Text;
 
 namespace ServiceStack.OrmLite.Tests
 {
+    using System.Reflection;
+    using System.Runtime.InteropServices;
+
     using ServiceStack.DataAnnotations;
 
     [TestFixture]
@@ -192,12 +195,69 @@ namespace ServiceStack.OrmLite.Tests
             public Guid Guid { get; set; }
         }
 
+        public class ModelThatReferencesModelWithOddIds
+        {
+            [Index(false)]
+            public long Id { get; set; }
+
+            [PrimaryKey]
+            public Guid Guid { get; set; }
+
+            [References(typeof(ModelWithOddIds))]
+            public Guid ModelWithOddIdsId { get; set; }
+        }
+
         [Test]
         public void Can_handle_table_with_non_conventional_id()
         {
             using (var db = OpenDbConnection())
             {
                 db.DropAndCreateTable<ModelWithOddIds>();
+
+                db.GetLastSql().Print();
+            }
+        }
+
+        [Test]
+        public void Can_handle_references_with_non_conventional_ids()
+        {
+            using (var db = OpenDbConnection())
+            {
+                db.DropAndCreateTable<ModelWithOddIds>();
+                db.DropAndCreateTable<ModelThatReferencesModelWithOddIds>();
+
+                db.GetLastSql().Print();
+
+                db.Insert(new ModelWithOddIds() { Id = 1, Guid = new Guid("CDE11899-9CAF-4885-A881-BDF36AD54525") });
+                db.Insert(new ModelThatReferencesModelWithOddIds() { Id = 1, Guid = Guid.NewGuid(), ModelWithOddIdsId = new Guid("CDE11899-9CAF-4885-A881-BDF36AD54525") });
+
+                db.GetLastSql().Print();
+            }
+        }
+
+        public class ModelWithNonPrimaryKeyForeignKeyReference
+        {
+            [PrimaryKey]
+            public Guid Guid { get; set; }
+
+            [PropertyReference(typeof(ModelWithOddIds), "Id")]
+            public int ModelWithOddIdsId { get; set; }
+        }
+
+        [Test]
+        public void Can_have_reference_to_non_primary_key_field()
+        {
+            using (var db = OpenDbConnection())
+            {
+                db.DropAndCreateTable<ModelWithOddIds>();
+                db.DropAndCreateTable<ModelWithNonPrimaryKeyForeignKeyReference>();
+
+                db.GetLastSql().Print();
+
+                db.Insert(new ModelWithOddIds() { Id = 1, Guid = new Guid("CDE11899-9CAF-4885-A881-BDF36AD54525") });
+                db.GetLastSql().Print();
+
+                db.Insert(new ModelWithNonPrimaryKeyForeignKeyReference() { Guid = Guid.NewGuid(), ModelWithOddIdsId = 1 });
 
                 db.GetLastSql().Print();
             }

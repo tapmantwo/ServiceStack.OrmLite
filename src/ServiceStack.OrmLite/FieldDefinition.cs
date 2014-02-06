@@ -59,6 +59,8 @@ namespace ServiceStack.OrmLite
 
         public ForeignKeyConstraint ForeignKey { get; set; }
 
+        public PropertyReferenceConstraint PropertyReference { get; set; }
+
         public PropertyGetterDelegate GetValueFn { get; set; }
 
         public PropertySetterDelegate SetValueFn { get; set; }
@@ -83,6 +85,38 @@ namespace ServiceStack.OrmLite
         public string BelongToModelName { get; set; }
 
         public bool IsReference { get; set; }
+    }
+
+    public class PropertyReferenceConstraint
+    {
+        public static PropertyReferenceConstraint FromAttribute(PropertyReferenceAttribute attr)
+        {
+            if (attr == null) return null;
+
+            return new PropertyReferenceConstraint(attr.ReferencedType, attr.PropertyName);
+        }
+
+        public Type ReferenceType { get; set; }
+
+        public string PropertyName { get; set; }
+
+        public PropertyReferenceConstraint(Type referenceType, string propertyName)
+        {
+            this.ReferenceType = referenceType;
+            this.PropertyName = propertyName;
+        }
+
+        public string GetForeignKeyName(ModelDefinition modelDef, ModelDefinition refModelDef, INamingStrategy NamingStrategy, FieldDefinition fieldDef)
+        {
+            var modelName = modelDef.IsInSchema
+                ? modelDef.Schema + "_" + NamingStrategy.GetTableName(modelDef.ModelName)
+                : NamingStrategy.GetTableName(modelDef.ModelName);
+
+            var refModelName = refModelDef.IsInSchema
+                ? refModelDef.Schema + "_" + NamingStrategy.GetTableName(refModelDef.ModelName)
+                : NamingStrategy.GetTableName(refModelDef.ModelName);
+            return string.Format("FK_{0}_{1}_{2}", modelName, refModelName, fieldDef.FieldName);
+        }
     }
 
     public class ForeignKeyConstraint
